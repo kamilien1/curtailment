@@ -1,3 +1,23 @@
+# Word temporary
+~$*.doc*
+
+# Excel temporary
+~$*.xls*
+
+# Excel Backup File
+*.xlk
+
+# PowerPoint temporary
+~$*.ppt*
+
+# Visio autosave temporary files
+*.~vsdx
+
+# All folders
+**/data/*
+**/documents/*
+**/Archive/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
