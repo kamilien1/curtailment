@@ -1,0 +1,17 @@
+---
+title: "Curtailment Readme"
+author: "Kamil Bojanczyk"
+date: "November 5, 2016"
+output: html_document
+---
+
+This is a deterministic supply and demand model for macro-level analysis of curtailment of energy generation sources in a power grid.
+
+
+### Data Inputs
+
+
+### Models
+
+
+### Outputs
