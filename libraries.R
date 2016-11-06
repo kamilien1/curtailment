@@ -5,4 +5,9 @@
 library(pacman)
 
 # can load all libraries at once this way
-p_load(dplyr, readxl, lubridate, pryr, chron)
+p_load(
+    dplyr, 
+    readxl, 
+    lubridate,
+    pryr, 
+    chron)

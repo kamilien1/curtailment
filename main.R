@@ -6,17 +6,17 @@
 
 # use the code analysis functions to analyze the functions
 # also load all package libraries
-source("code/libraries.R")
-source("code/code_analysis.R")
+source("libraries.R")
+source("code_analysis.R")
 
 
 
 # read data into workspace
 # to read files in, source the functions from read_files.R
-source("code/read_files.R")
+source("read_files.R")
 
 # choose data to upload
-getSpreadsheetData(dir = "data/")
+getSpreadsheetData(dir = "../data/")
 
 # pseudo clean the data
 allData <- loadAll(files, load_file_index, sheets_to_read)
@@ -25,7 +25,7 @@ allData <- trimColumns(allData, sheets_to_read)
 
 
 # clean data into proper format
-source('code/clean_files.R')
+source('clean_files.R')
 
 # splits the supplySolar field and removes it
 allData <- splitSolarData(allData)
@@ -47,78 +47,111 @@ allData <- trimNAs(allData)
 #mem_used()
 
 
-# TODO
+### back up here
+backup <- allData
+# allData <- backup
+
+
+
+
+
+
+
 # data is read into allData df
 # now build profiles and begin simulation
-df <- generateHourlyDates(2012,2020)
+timeDF <- generateHourlyDates(2012,2025)
 
-# choose the model, in this case jjt as a test
-checkList <- names(allData)[-1]
-simModel <- chooseModel(allData, checkList, modelChoice = 'shaanxi')
 
+model = 'shaanxi'
+
+# check for missing data
+missingData <- checkModels(df = allData, gridModelName = model, checkList = checkList)
+# missingData
+# get the subset of missing data
+# subset <- allData[missingData]
+
+# choose the model and subset all data
+checkList <- names(allData)[names(allData) != c("gridModels")]
+simModel <- chooseModel(dfList = allData, dfNames = checkList, modelChoice = model)
+# str(simModel)
+# note, may need to get back to this step and replace simModel$windHourly$model = current model
+
+
+### TODO starting here
 # create the demand profile
-dProfile <- setHiLoDemandProfile(setAnnualProfile(df, 
-                               simModel$hourlyDemandProfiles[,-1],
-                               simModel$monthlyDemandProfiles[,-1], 
-                               simModel$annualDemand[,-1]
+dProfile <- setHiLoDemandProfile(setAnnualProfile(df = timeDF, 
+                               hd = simModel$hourlyDemandProfiles[,-1],
+                               md = simModel$monthlyDemandProfiles[,-1], 
+                               ad = simModel$annualDemand[,-1]
                                )
 )
-
+# str(dProfile)
 
 
 
 # create the transmission profile
-tProfile <- setAnnualProfile(df, 
-                             simModel$hourlyTransmissionSchedules[,-1],
-                             simModel$monthlyTransmissionSchedule[,-1],
-                             simModel$annualTransmissionForecast[,-1]
+tProfile <- setAnnualProfile(df = timeDF, 
+                             hd = simModel$hourlyTransmissionSchedules[,-1],
+                             md = simModel$monthlyTransmissionSchedule[,-1],
+                             ad = simModel$annualTransmissionForecast[,-1]
                              )
+# str(tProfile)
+# str(simModel)
+# create power flow in and out
 transPower <- addPowerFlowTransmission(tProfile)
+#str(transPower)
 
 
 # set up the solar and wind profiles
-solarAll <- addDataToDateRange(solarAnnualHourly, unique(dateRange$year))
-windAll <- addDataToDateRange(allData$windHourly$kWh_kW, unique(dateRange$year))
-solarGWh <- setAnnualSupplyProfile(dateRange, simModel$supplyForecast, solarAll, "solar")
-windGWh <- setAnnualSupplyProfile(dateRange, simModel$supplyForecast, windAll, "wind")
-solarThermalGWh <- setAnnualSupplyProfile(dateRange, simModel$supplyForecast, solarAll, "solar_thermal")
-windOffshoreGWh <- setAnnualSupplyProfile(dateRange, simModel$supplyForecast, windAll, "wind_offshore")
+
+# make a 1 year solar profile
+solarAnnualHourly <- dayMonthToAnnualProfile(simModel$solarDay, simModel$solarMonth)
+solarAll <- addDataToDateRange(solarAnnualHourly, unique(timeDF$year)) 
+solarGWh <- setAnnualSupplyProfile(timeDF, simModel$supplyForecast, solarAll, "solar")
+
+windAll <- addDataToDateRange(simModel$windHourly$kWh_kW, unique(timeDF$year))
+windGWh <- setAnnualSupplyProfile(timeDF, simModel$supplyForecast, windAll, "wind")
+
+solarThermalGWh <- setAnnualSupplyProfile(timeDF, simModel$supplyForecast, solarAll, "solar_thermal")
+windOffshoreGWh <- setAnnualSupplyProfile(timeDF, simModel$supplyForecast, windAll, "wind_offshore")
+
 # make a supply 'profile' of 1kwh/kw, effectively creating the iCap level
 # unique(simModel$supplyForecast$supply_type)
-coalICapGW <- setAnnualSupplyProfile(dateRange, simModel$supplyForecast,rep(1, length(windAll)) , "coal") 
+coalICapGW <- setAnnualSupplyProfile(timeDF, simModel$supplyForecast,rep(1, length(windAll)) , "coal") 
 names(coalICapGW) <- 'coalICapGW'
-natgasICapGW <- setAnnualSupplyProfile(dateRange, simModel$supplyForecast,rep(1, length(windAll)) , "natgas") 
+natgasICapGW <- setAnnualSupplyProfile(timeDF, simModel$supplyForecast,rep(1, length(windAll)) , "natgas") 
 names(natgasICapGW) <- 'natgasICapGW'
-hydroICapGW <- setAnnualSupplyProfile(dateRange, simModel$supplyForecast,rep(1, length(windAll)) , "hydro") 
+hydroICapGW <- setAnnualSupplyProfile(timeDF, simModel$supplyForecast,rep(1, length(windAll)) , "hydro") 
 names(hydroICapGW) <- 'hydroICapGW'
-biomassICapGW <- setAnnualSupplyProfile(dateRange, simModel$supplyForecast,rep(1, length(windAll)) , "biomass") 
+biomassICapGW <- setAnnualSupplyProfile(timeDF, simModel$supplyForecast,rep(1, length(windAll)) , "biomass") 
 names(biomassICapGW) <- 'biomassICapGW'
-hydroPumpedICapGW <- setAnnualSupplyProfile(dateRange, simModel$supplyForecast,rep(1, length(windAll)) , "hydro_pumped") 
+hydroPumpedICapGW <- setAnnualSupplyProfile(timeDF, simModel$supplyForecast,rep(1, length(windAll)) , "hydro_pumped") 
 names(hydroPumpedICapGW) <- 'hydroPumpedICapGW'
 
 powerProfile <- cbind(solarGWh, windGWh, solarThermalGWh, windOffshoreGWh, coalICapGW, 
                       natgasICapGW, hydroICapGW, biomassICapGW, hydroPumpedICapGW)
 
-head(windAll)
+#head(windAll)
 
 # bind everything together to start the simulation
-head(dProfile)
-head(tProfile)
+# head(dProfile)
+# head(tProfile)
 
 
 
-deterministicSupply <- cbind(dateRange, solarGWh, windGWh, solarThermalGWh, windOffshoreGWh)
-head(deterministicSupply)
+deterministicSupply <- cbind(timeDF, solarGWh, windGWh, solarThermalGWh, windOffshoreGWh)
+#head(deterministicSupply)
 
 # get chpDates 
 chpDates <- addDataToDateRange(setCHPdates(day(simModel$chpDates$date_start),
                                             month(simModel$chpDates$date_start),
                                             day(simModel$chpDates$date_end),
                                             month(simModel$chpDates$date_end)),
-                               unique(dateRange$year))
+                               unique(timeDF$year))
                     
                     
 # get pmin/pmax for coal, natgas
+supply = 'coal'
 pmin_chp = simModel$supplyOutput$pmin[simModel$supplyOutput$supply_type == supply & 
                                           simModel$supplyOutput$is_chp == TRUE]
 pmin_no_chp = simModel$supplyOutput$pmin[simModel$supplyOutput$supply_type == supply & 
@@ -127,14 +160,24 @@ pmax_chp = simModel$supplyOutput$pmax[simModel$supplyOutput$supply_type == suppl
                                           simModel$supplyOutput$is_chp == TRUE]
 pmax_no_chp = simModel$supplyOutput$pmax[simModel$supplyOutput$supply_type == supply & 
                                              simModel$supplyOutput$is_chp == FALSE]
-
-coalPLevels <- setPminPmaxVals(dateRange, simModel$chpRatios, chpDates, supply = 'coal', 
+# (dateDF, chpRatios, chpDates, supply, pmin_chp=0, pmax_chp=1, pmin_no_chp=0, pmax_no_chp=1)
+coalPLevels <- setPminPmaxVals(timeDF, simModel$chpRatios, chpDates, supply = 'coal', 
                                pmin_chp, 
                                pmax_chp, 
                                pmin_no_chp, 
                                pmax_no_chp)
 
-natgasPLevels <- setPminPmaxVals(dateRange, simModel$chpRatios, chpDates, supply = 'natgas', 
+supply = 'natgas'
+pmin_chp = simModel$supplyOutput$pmin[simModel$supplyOutput$supply_type == supply & 
+                                          simModel$supplyOutput$is_chp == TRUE]
+pmin_no_chp = simModel$supplyOutput$pmin[simModel$supplyOutput$supply_type == supply & 
+                                             simModel$supplyOutput$is_chp == FALSE]
+pmax_chp = simModel$supplyOutput$pmax[simModel$supplyOutput$supply_type == supply & 
+                                          simModel$supplyOutput$is_chp == TRUE]
+pmax_no_chp = simModel$supplyOutput$pmax[simModel$supplyOutput$supply_type == supply & 
+                                             simModel$supplyOutput$is_chp == FALSE]
+# (dateDF, chpRatios, chpDates, supply, pmin_chp=0, pmax_chp=1, pmin_no_chp=0, pmax_no_chp=1)
+natgasPLevels <- setPminPmaxVals(timeDF, simModel$chpRatios, chpDates, supply = 'natgas', 
                                  pmin_chp, 
                                  pmax_chp, 
                                  pmin_no_chp, 
@@ -142,20 +185,21 @@ natgasPLevels <- setPminPmaxVals(dateRange, simModel$chpRatios, chpDates, supply
 
 
 
+# (dateDF, chpRatios, chpDates, supply, pmin_chp=0, pmax_chp=1, pmin_no_chp=0, pmax_no_chp=1)
 # pmin for all other: wind, solar, wind_offshore, solar_thermal, hydro, biomass, hydro_pumped
-windPLevels <- setPminPmaxVals(dateRange, simModel$chpRatios, chpDates, supply = 'wind')
-windOffshorePLevels <- setPminPmaxVals(dateRange, simModel$chpRatios, chpDates, supply = 'wind_offshore')
-solarPLevels <- setPminPmaxVals(dateRange, simModel$chpRatios, chpDates, supply = 'solar')
-solarThermalPLevels <- setPminPmaxVals(dateRange, simModel$chpRatios, chpDates, supply = 'solar_thermal')
-hydroPLevels <- setPminPmaxVals(dateRange, simModel$chpRatios, chpDates, supply = 'hydro')
-biomassPLevels <- setPminPmaxVals(dateRange, simModel$chpRatios, chpDates, supply = 'biomass')
-hydroPumpedPLevels <- setPminPmaxVals(dateRange, simModel$chpRatios, chpDates, supply = 'hydro_pumped')
+windPLevels <- setPminPmaxVals(timeDF, simModel$chpRatios, chpDates, supply = 'wind')
+windOffshorePLevels <- setPminPmaxVals(timeDF, simModel$chpRatios, chpDates, supply = 'wind_offshore')
+solarPLevels <- setPminPmaxVals(timeDF, simModel$chpRatios, chpDates, supply = 'solar')
+solarThermalPLevels <- setPminPmaxVals(timeDF, simModel$chpRatios, chpDates, supply = 'solar_thermal')
+hydroPLevels <- setPminPmaxVals(timeDF, simModel$chpRatios, chpDates, supply = 'hydro')
+biomassPLevels <- setPminPmaxVals(timeDF, simModel$chpRatios, chpDates, supply = 'biomass')
+hydroPumpedPLevels <- setPminPmaxVals(timeDF, simModel$chpRatios, chpDates, supply = 'hydro_pumped')
 
 
 powerLevels <- cbind(coalPLevels, natgasPLevels, windPLevels, windOffshorePLevels, solarPLevels,
                      solarThermalPLevels, hydroPLevels, biomassPLevels, hydroPumpedPLevels)
 print(object.size(powerLevels), units = "Mb")
-head(powerLevels)
+# head(powerLevels)
 
 
 # merge df, dProfile, transPower
@@ -168,4 +212,5 @@ head(df)
 head(dProfile)
 head(powerProfile)
 
-
+# merge into one df
+# 
