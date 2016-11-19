@@ -1,3 +1,4 @@
+
 # now all the data has been loaded and cleaned
 # we must prepare it for the final step before simulation
 # each type of data needs to be in its final format, ready for simluation
@@ -13,6 +14,7 @@
 # charts
 # load gradient chart: x - 24 hrs, y - day, fill = energy intensity
 # http://esd.mit.edu/people/dissertations/cheng.pdf page 163
+
 
 
 
@@ -76,6 +78,7 @@
 ################################################################################
 ################################################################################
 
+
 # demand profiles
 # -- hourly, with season, 24-hr profile
 # -- monthly, with season, % consumption relative to peak month
@@ -95,6 +98,7 @@
 # tz is optional, leave blank to default to GMT to avoid snafu's with computers
 # for now, it will be a start and end year, not a specific range of dates
 # note: leap years are handled properly here
+
 generateHourlyDates <- function(start_year=2012, end_year=2025, tz = "GMT"){
 
     start <- as.POSIXlt(paste(start_year,"-01-01 00:00",sep=''),tz=tz)

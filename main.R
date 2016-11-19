@@ -62,7 +62,9 @@ backup <- allData
 timeDF <- generateHourlyDates(2012,2025)
 
 
+# for now we try shaanxi
 model = 'shaanxi'
+
 
 # check for missing data
 missingData <- checkModels(df = allData, gridModelName = model, checkList = checkList)
@@ -77,7 +79,6 @@ simModel <- chooseModel(dfList = allData, dfNames = checkList, modelChoice = mod
 # note, may need to get back to this step and replace simModel$windHourly$model = current model
 
 
-### TODO starting here
 # create the demand profile
 dProfile <- setHiLoDemandProfile(setAnnualProfile(df = timeDF, 
                                hd = simModel$hourlyDemandProfiles[,-1],
@@ -206,11 +207,18 @@ print(object.size(powerLevels), units = "Mb")
 # deterministicSupply
 # powerLevels, powerProfile
 head(deterministicSupply)
-head(powerLevels)
 head(transPower)
 head(df)
 head(dProfile)
 head(powerProfile)
+names(powerLevels) # head(powerLevels)
 
-# merge into one df
-# 
+# merge all data by the df time scale
+simData <- df %>% left_join(deterministicSupply, by=c("year","month","day","hour")) %>%
+    left_join(transPower, by=c("year","month","day","hour")) %>%
+    left_join(dProfile, by=c("year","month","day","hour")) %>%
+    bind_cols(powerLevels) %>%
+    bind_cols(powerProfile)
+
+
+head(simData)
